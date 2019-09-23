@@ -1,6 +1,7 @@
 use std::boxed::Box;
 use std::iter::Iterator;
 
+// typr alias
 type Link<T> = Option<Box<Node<T>>>;
 
 pub struct Node<T> {
@@ -42,6 +43,26 @@ impl<'a, T> SimpleLinkedList<T> {
 
         count
     }
+
+    pub fn push(&mut self, item : T) {
+        let link = Some(Box::new(Node::new(item)));
+        
+
+        if let Some(mut curr) = self.head.as_ref() {
+            loop {
+                if let Some(next) = &mut curr.next {
+                    *curr = Box::new(**next)
+                } else {
+                    0;
+                    curr.next = Some(Box::new(Node::new(item)));
+                    break;
+                }
+
+            }
+        } else {
+            self.head = Some(Box::new(Node::new(item)));
+        }
+    }
 }
 
 // iterator is a separate struct for keeping state
@@ -54,19 +75,15 @@ impl<'a, T: 'a> Iterator for NodeIter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        //let next: Option<&'a Node<T>> = self.next;
-
         self.next.map(|node| {
-            self.next = node.next.as_ref().map(|node| { 
-                &**node
-            });
+            self.next = node.next.as_ref().map(|node| &**node);
             &node.data
         })
     }
 }
 
 #[cfg(test)]
-mod test{
+mod test {
     use super::SimpleLinkedList;
 
     #[test]
