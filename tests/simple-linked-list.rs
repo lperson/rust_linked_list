@@ -1,4 +1,4 @@
-use simple_linked_list::Node as SimpleLinkedList;
+use simple_linked_list::SimpleLinkedList;
 
 #[test]
 fn test_new_list_is_empty() {
