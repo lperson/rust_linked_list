@@ -64,6 +64,71 @@ impl<T> Into<Vec<T>> for SimpleLinkedList<T> {
     }
 }
 
+trait Pushee<T> {
+    fn push(&mut self, jawn: T);
+    fn pop(&mut self) -> Option<T>;
+    fn next(&mut self) -> &mut Link<T>;
+}
+
+impl<T> Pushee<T> for Node<T> {
+    fn push(&mut self, jawn: T) {
+        self.next = Some(Box::new(Node::new(jawn)));
+    }
+
+    fn pop(&mut self) -> Option<T> {
+        if let Some(next) = &self.next {
+            if next.next.is_none() {
+                let jawn = self.next.take().unwrap().data;
+                return Some(jawn);
+            }
+        }
+        None
+    }
+
+    fn next(&mut self) -> &mut Link<T> {
+        &mut self.next
+    }
+
+}
+
+impl<T> Pushee<T> for SimpleLinkedList<T> {
+    fn push(&mut self, jawn: T) {
+        self.head = Some(Box::new(Node::new(jawn)));
+    }
+
+    fn pop(&mut self) -> Option<T> {
+        if let Some(head) = &self.head {
+            if head.next.is_none() {
+                let jawn = self.head.take().unwrap().data;
+                self.head = None;    
+                return Some(jawn); 
+            }
+        }
+        None
+    }
+
+    fn next(&mut self) -> &mut Link<T> {
+        &mut self.head
+    }
+}
+
+impl<T> Pushee<T> for Box<Node<T>> {
+    fn push(&mut self, jawn: T) {
+        let unboxed = &mut **self;
+        unboxed.push(jawn);
+    }
+
+    fn pop(&mut self) -> Option<T> {
+        let unboxed = &mut **self;
+        unboxed.pop()
+    }
+
+    fn next(&mut self) -> &mut Link<T> {
+        let unboxed = &mut **self;
+        unboxed.next()
+    }
+}
+
 impl<'a, T> SimpleLinkedList<T> {
     pub fn new() -> SimpleLinkedList<T> {
         Default::default()
@@ -90,51 +155,36 @@ impl<'a, T> SimpleLinkedList<T> {
     }
 
     pub fn push(&mut self, item: T) {
-        if self.head.is_some() {
-            // if let Some(curr) = self.head.as_ref() {
-            let mut curr = self.head.as_mut().unwrap();
-            while curr.next.is_some() {
-                curr = curr.next.as_mut().unwrap();
-            }
-            curr.next = Some(Box::new(Node::new(item)));
-        } else {
-            self.head = Some(Box::new(Node::new(item)));
+        let mut curr: &mut dyn Pushee<T> = self;
+        while let Some(_) = curr.next() {
+            curr = curr.next().as_mut().unwrap();
         }
+        curr.push(item);
     }
 
     pub fn pop(&mut self) -> Option<T> {
-        if self.head.is_some() {
-            if self.head.as_ref().unwrap().next.is_none() {
-                let popped = Some(self.head.take().unwrap().data);
-                self.head = None;
-                return popped;
+        let mut curr: &mut dyn Pushee<T> = self;
+        while let Some(next) = curr.next() {
+            if next.next.is_none() {
+                break;
             }
-
-            let mut curr = self.head.as_mut().unwrap();
-            while curr.next.is_some() {
-                let curr_next = curr.next.as_ref();
-                if curr_next.unwrap().next.is_none() {
-                    return Some(curr.next.take().unwrap().data);
-                }
-                curr = curr.next.as_mut().unwrap();
-            }
-            None
-        } else {
-            None
+            
+            curr = curr.next().as_mut().unwrap();
         }
+        curr.pop()
     }
 
     pub fn peek(&self) -> Option<&T> {
         if self.head.is_some() {
             if self.head.as_ref().unwrap().next.is_none() {
-                return Some(&self.head.as_ref().unwrap().data);
+                return self.head.as_ref().map(|node| &node.data);
             }
 
             let mut curr = self.head.as_ref().unwrap();
             while curr.next.is_some() {
                 let curr_next = curr.next.as_ref();
                 if curr_next.unwrap().next.is_none() {
-                    return Some(&curr.next.as_ref().unwrap().data);
+                    return curr.next.as_ref().map(|node| &node.data)
                 }
                 curr = curr.next.as_ref().unwrap();
             }
