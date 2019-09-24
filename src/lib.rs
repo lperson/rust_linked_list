@@ -68,6 +68,7 @@ trait Pushee<T> {
     fn push(&mut self, jawn: T);
     fn pop(&mut self) -> Option<T>;
     fn next(&mut self) -> &mut Link<T>;
+    fn peek(&self) -> Option<&T>;
 }
 
 impl<T> Pushee<T> for Node<T> {
@@ -89,6 +90,10 @@ impl<T> Pushee<T> for Node<T> {
         &mut self.next
     }
 
+    fn peek(&self) -> Option<&T>
+    {
+        Some(&self.data)
+    }
 }
 
 impl<T> Pushee<T> for SimpleLinkedList<T> {
@@ -110,6 +115,11 @@ impl<T> Pushee<T> for SimpleLinkedList<T> {
     fn next(&mut self) -> &mut Link<T> {
         &mut self.head
     }
+
+    fn peek(&self) -> Option<&T>
+    {
+        self.head.as_ref().map(|node| & node.data)
+    }
 }
 
 impl<T> Pushee<T> for Box<Node<T>> {
@@ -126,6 +136,12 @@ impl<T> Pushee<T> for Box<Node<T>> {
     fn next(&mut self) -> &mut Link<T> {
         let unboxed = &mut **self;
         unboxed.next()
+    }
+
+    fn peek(&self) -> Option<&T>
+    {
+        let unboxed = &**self;
+        unboxed.peek()
     }
 }
 
@@ -168,7 +184,7 @@ impl<'a, T> SimpleLinkedList<T> {
             if next.next.is_none() {
                 break;
             }
-            
+
             curr = curr.next().as_mut().unwrap();
         }
         curr.pop()
