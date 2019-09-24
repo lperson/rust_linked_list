@@ -67,7 +67,8 @@ impl<T> Into<Vec<T>> for SimpleLinkedList<T> {
 trait Pushee<T> {
     fn push(&mut self, jawn: T);
     fn pop(&mut self) -> Option<T>;
-    fn next(&mut self) -> &mut Link<T>;
+    fn next(&self) -> &Link<T>;
+    fn next_mut(&mut self) -> &mut Link<T>;
     fn peek(&self) -> Option<&T>;
 }
 
@@ -86,7 +87,11 @@ impl<T> Pushee<T> for Node<T> {
         None
     }
 
-    fn next(&mut self) -> &mut Link<T> {
+    fn next(&self) -> &Link<T> {
+        &self.next
+    }
+
+    fn next_mut(&mut self) -> &mut Link<T> {
         &mut self.next
     }
 
@@ -112,7 +117,11 @@ impl<T> Pushee<T> for SimpleLinkedList<T> {
         None
     }
 
-    fn next(&mut self) -> &mut Link<T> {
+    fn next(&self) -> &Link<T> {
+        &self.head
+    }
+
+    fn next_mut(&mut self) -> &mut Link<T> {
         &mut self.head
     }
 
@@ -133,9 +142,14 @@ impl<T> Pushee<T> for Box<Node<T>> {
         unboxed.pop()
     }
 
-    fn next(&mut self) -> &mut Link<T> {
-        let unboxed = &mut **self;
+    fn next(&self) -> &Link<T> {
+        let unboxed = &**self;
         unboxed.next()
+    }
+
+    fn next_mut(&mut self) -> &mut Link<T> {
+        let unboxed = &mut **self;
+        unboxed.next_mut()
     }
 
     fn peek(&self) -> Option<&T>
@@ -172,42 +186,29 @@ impl<'a, T> SimpleLinkedList<T> {
 
     pub fn push(&mut self, item: T) {
         let mut curr: &mut dyn Pushee<T> = self;
-        while let Some(_) = curr.next() {
-            curr = curr.next().as_mut().unwrap();
+        while let Some(_) = curr.next_mut() {
+            curr = curr.next_mut().as_mut().unwrap();
         }
         curr.push(item);
     }
 
     pub fn pop(&mut self) -> Option<T> {
         let mut curr: &mut dyn Pushee<T> = self;
-        while let Some(next) = curr.next() {
+        while let Some(next) = curr.next_mut() {
             if next.next.is_none() {
                 break;
             }
-
-            curr = curr.next().as_mut().unwrap();
+            curr = curr.next_mut().as_mut().unwrap();
         }
         curr.pop()
     }
 
     pub fn peek(&self) -> Option<&T> {
-        if self.head.is_some() {
-            if self.head.as_ref().unwrap().next.is_none() {
-                return self.head.as_ref().map(|node| &node.data);
-            }
-
-            let mut curr = self.head.as_ref().unwrap();
-            while curr.next.is_some() {
-                let curr_next = curr.next.as_ref();
-                if curr_next.unwrap().next.is_none() {
-                    return curr.next.as_ref().map(|node| &node.data)
-                }
-                curr = curr.next.as_ref().unwrap();
-            }
-            None
-        } else {
-            None
+        let mut curr: &dyn Pushee<T> = self;
+        while let Some(_) = curr.next() {
+            curr = curr.next().as_ref().unwrap();
         }
+        curr.peek()
     }
 
     fn reverser(new_list: &mut SimpleLinkedList<T>, current_node: &mut Link<T>) {
