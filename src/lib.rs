@@ -42,21 +42,15 @@ impl<T> Into<Vec<T>> for SimpleLinkedList<T> {
     fn into(self) -> Vec<T> {
         let mut return_vec = Vec::new();
         let mut my_self = self;
-
         if my_self.head.is_some() {
-            if my_self.head.as_ref().unwrap().next.is_none() {
-                let popped = my_self.head.take().unwrap().data;
-                return_vec.push(popped);
-                return return_vec;
-            }
-
-            let mut curr = my_self.head.take().unwrap();
-            loop {
-                return_vec.push(curr.data);
-                if curr.next.is_none() {
+            let mut curr = my_self.head.take();
+            while curr.is_some() {
+                let mut node = curr.unwrap();
+                return_vec.push(node.data);
+                if node.next.is_none() {
                     break;
                 }
-                curr = curr.next.take().unwrap();
+                curr = node.next.take();
             }
         } 
 
@@ -95,8 +89,7 @@ impl<T> Pushee<T> for Node<T> {
         &mut self.next
     }
 
-    fn peek(&self) -> Option<&T>
-    {
+    fn peek(&self) -> Option<&T> {
         Some(&self.data)
     }
 }
@@ -125,8 +118,7 @@ impl<T> Pushee<T> for SimpleLinkedList<T> {
         &mut self.head
     }
 
-    fn peek(&self) -> Option<&T>
-    {
+    fn peek(&self) -> Option<&T> {
         self.head.as_ref().map(|node| & node.data)
     }
 }
@@ -152,8 +144,7 @@ impl<T> Pushee<T> for Box<Node<T>> {
         unboxed.next_mut()
     }
 
-    fn peek(&self) -> Option<&T>
-    {
+    fn peek(&self) -> Option<&T> {
         let unboxed = &**self;
         unboxed.peek()
     }
