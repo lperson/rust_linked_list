@@ -10,18 +10,19 @@ pub struct Node<T> {
 }
 
 impl<T> Node<T> {
-    fn new(data: T) -> Self {
-        Self { data, next: None }
+    fn new(data: T, next: Link<T>) -> Self {
+        Self { data, next }
     }
 }
 
 pub struct SimpleLinkedList<T> {
     head: Link<T>,
+    len: usize,
 }
 
 impl<'a, T> Default for SimpleLinkedList<T> {
     fn default() -> Self {
-        Self { head: None }
+        Self { head: None, len: 0 }
     }
 }
 
@@ -39,114 +40,23 @@ where
 }
 
 impl<T> Into<Vec<T>> for SimpleLinkedList<T> {
-    fn into(self) -> Vec<T> {
-        let mut return_vec = Vec::new();
-        let mut my_self = self;
-        if my_self.head.is_some() {
-            let mut curr = my_self.head.take();
-            while curr.is_some() {
-                let mut node = curr.unwrap();
-                return_vec.push(node.data);
-                if node.next.is_none() {
-                    break;
-                }
-                curr = node.next.take();
-            }
-        } 
-
+    fn into(mut self) -> Vec<T> {
+        let mut return_vec = Vec::with_capacity(self.len());
+        let mut current = self.head.take();
+        while let Some(mut unwrapped_current) = current {
+            return_vec.insert(0, unwrapped_current.data);
+            current = unwrapped_current.next.take();
+        }
         return_vec
     }
 }
 
-trait Pushee<T> {
-    fn push(&mut self, jawn: T);
-    fn pop(&mut self) -> Option<T>;
-    fn next(&self) -> &Link<T>;
-    fn next_mut(&mut self) -> &mut Link<T>;
-    fn peek(&self) -> Option<&T>;
-}
-
-impl<T> Pushee<T> for Node<T> {
-    fn push(&mut self, jawn: T) {
-        self.next = Some(Box::new(Node::new(jawn)));
-    }
-
-    fn pop(&mut self) -> Option<T> {
-        if let Some(next) = &self.next {
-            if next.next.is_none() {
-                let jawn = self.next.take().unwrap().data;
-                return Some(jawn);
-            }
+impl<T> Drop for SimpleLinkedList<T> {
+    fn drop(&mut self) {
+        let mut current = self.head.take();
+        while let Some(mut unwrapped_current) = current {
+            current = unwrapped_current.next.take();
         }
-        None
-    }
-
-    fn next(&self) -> &Link<T> {
-        &self.next
-    }
-
-    fn next_mut(&mut self) -> &mut Link<T> {
-        &mut self.next
-    }
-
-    fn peek(&self) -> Option<&T> {
-        Some(&self.data)
-    }
-}
-
-impl<T> Pushee<T> for SimpleLinkedList<T> {
-    fn push(&mut self, jawn: T) {
-        self.head = Some(Box::new(Node::new(jawn)));
-    }
-
-    fn pop(&mut self) -> Option<T> {
-        if let Some(head) = &self.head {
-            if head.next.is_none() {
-                let jawn = self.head.take().unwrap().data;
-                self.head = None;    
-                return Some(jawn); 
-            }
-        }
-        None
-    }
-
-    fn next(&self) -> &Link<T> {
-        &self.head
-    }
-
-    fn next_mut(&mut self) -> &mut Link<T> {
-        &mut self.head
-    }
-
-    fn peek(&self) -> Option<&T> {
-        self.head.as_ref().map(|node| & node.data)
-    }
-}
-
-impl<T> Pushee<T> for Box<Node<T>> {
-    fn push(&mut self, jawn: T) {
-        let unboxed = &mut **self;
-        unboxed.push(jawn);
-    }
-
-    fn pop(&mut self) -> Option<T> {
-        let unboxed = &mut **self;
-        unboxed.pop()
-    }
-
-    fn next(&self) -> &Link<T> {
-        let unboxed = &**self;
-        unboxed.next()
-    }
-
-    fn next_mut(&mut self) -> &mut Link<T> {
-        let unboxed = &mut **self;
-        unboxed.next_mut()
-    }
-
-    fn peek(&self) -> Option<&T> {
-        let unboxed = &**self;
-        unboxed.peek()
     }
 }
 
@@ -166,65 +76,39 @@ impl<'a, T> SimpleLinkedList<T> {
     }
 
     pub fn len(&self) -> usize {
-        let mut count = 0;
-
-        for _ in self.iter() {
-            count += 1;
-        }
-
-        count
+        self.len
     }
 
-    pub fn push(&mut self, item: T) {
-        let mut curr: &mut dyn Pushee<T> = self;
-        while let Some(_) = curr.next_mut() {
-            curr = curr.next_mut().as_mut().unwrap();
-        }
-        curr.push(item);
+    pub fn push(&mut self, jawn: T) {
+        let new_jawn = Box::new(Node::new(jawn, self.head.take()));
+        self.head = Some(new_jawn);
+        self.len += 1;
     }
 
     pub fn pop(&mut self) -> Option<T> {
-        let mut curr: &mut dyn Pushee<T> = self;
-        while let Some(next) = curr.next_mut() {
-            if next.next.is_none() {
-                break;
-            }
-            curr = curr.next_mut().as_mut().unwrap();
+        if let Some(old_head) = self.head.take() {
+            self.head = old_head.next;
+            self.len -= 1;
+            return Some(old_head.data);
         }
-        curr.pop()
+        None
     }
 
     pub fn peek(&self) -> Option<&T> {
-        let mut curr: &dyn Pushee<T> = self;
-        while let Some(_) = curr.next() {
-            curr = curr.next().as_ref().unwrap();
+        if let Some(head) = self.head.as_ref() {
+            return Some(&head.data);
         }
-        curr.peek()
+        None
     }
 
-    fn reverser(new_list: &mut SimpleLinkedList<T>, current_node: &mut Link<T>) {
-        let next_node = &mut current_node.as_mut().unwrap().next;
-        if next_node.is_some() {
-            Self::reverser(new_list, next_node);
-        }
-
-        new_list.push(current_node.take().unwrap().data)
-    }
-
-    pub fn rev(&mut self) -> SimpleLinkedList<T> {
-        if self.head.is_none() {
-            return Default::default();
-        }
-
-        if self.head.as_ref().unwrap().next.is_none() {
-            return SimpleLinkedList {
-                head: Some(self.head.take().unwrap()),
-            };
-        }
-
+    pub fn rev(mut self) -> SimpleLinkedList<T> {
         let mut new_list: SimpleLinkedList<T> = Default::default();
-        Self::reverser(&mut new_list, &mut self.head);
 
+        let mut current = self.head.take();
+        while let Some(mut unwrapped_current) = current {
+            new_list.push(unwrapped_current.data);
+            current = unwrapped_current.next.take();
+        }
         new_list
     }
 }
@@ -251,9 +135,21 @@ mod test {
     use super::SimpleLinkedList;
 
     #[test]
-    fn iterate_over_empty_list() {
+    fn test_iterate_over_empty_list() {
         let the_list: SimpleLinkedList<u8> = SimpleLinkedList::new();
         let collected: Vec<&u8> = the_list.iter().collect();
         assert_eq!(collected.len(), 0);
+    }
+
+    #[test]
+    fn test_iterate() {
+        let mut list: SimpleLinkedList<u32> = SimpleLinkedList::new();
+        list.push(1);
+        list.push(2);
+        list.push(3);
+        let iterated_list: Vec<&u32> = list.iter().collect();
+        assert_eq!(iterated_list[0], &3);
+        assert_eq!(iterated_list[1], &2);
+        assert_eq!(iterated_list[2], &1);
     }
 }
