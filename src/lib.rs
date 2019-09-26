@@ -1,5 +1,5 @@
 use std::boxed::Box;
-use std::iter::Iterator;
+use std::iter::{Iterator, IntoIterator};
 
 // typr alias
 type Link<T> = Option<Box<Node<T>>>;
@@ -51,6 +51,25 @@ impl<T> Into<Vec<T>> for SimpleLinkedList<T> {
     }
 }
 
+pub struct IntoIter<T>(SimpleLinkedList<T>);
+
+impl<T> IntoIterator for SimpleLinkedList<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntoIter(self)
+    }
+}
+
+impl<T> Iterator for IntoIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.pop()
+    }
+}
+
 impl<T> Drop for SimpleLinkedList<T> {
     fn drop(&mut self) {
         let mut current = self.head.take();
@@ -60,7 +79,7 @@ impl<T> Drop for SimpleLinkedList<T> {
     }
 }
 
-impl<'a, T> SimpleLinkedList<T> {
+impl<T> SimpleLinkedList<T> {
     pub fn new() -> SimpleLinkedList<T> {
         Default::default()
     }
@@ -69,9 +88,15 @@ impl<'a, T> SimpleLinkedList<T> {
         self.head.is_none()
     }
 
-    pub fn iter(&'a self) -> NodeIter<'a, T> {
+    pub fn iter(&self) -> NodeIter<T> {
         NodeIter {
-            next: self.head.as_ref().map(|node| &**node),
+            next: self.head.as_ref().map::<&Node<T>, _>(|node| node),
+        }
+    }
+
+    pub fn mut_iter(&mut self) -> MutNodeIter<T> {
+        MutNodeIter {
+            next: self.head.as_mut().map::<&mut Node<T>, _>(|node| node),
         }
     }
 
@@ -113,10 +138,12 @@ impl<'a, T> SimpleLinkedList<T> {
     }
 }
 
-// iterator is a separate struct for keeping state
-// of the thing we want to iterate
 pub struct NodeIter<'a, T> {
     next: Option<&'a Node<T>>,
+}
+
+pub struct MutNodeIter<'a, T> {
+    next: Option<&'a mut Node<T>>,
 }
 
 impl<'a, T: 'a> Iterator for NodeIter<'a, T> {
@@ -126,6 +153,17 @@ impl<'a, T: 'a> Iterator for NodeIter<'a, T> {
         self.next.map(|node| {
             self.next = node.next.as_ref().map(|node| &**node);
             &node.data
+        })
+    }
+}
+
+impl<'a, T: 'a> Iterator for MutNodeIter<'a, T> {
+    type Item = &'a mut T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.next.take().map(|node| {
+            self.next = node.next.as_mut().map(|node| &mut **node);
+            &mut node.data
         })
     }
 }
@@ -151,5 +189,35 @@ mod test {
         assert_eq!(iterated_list[0], &3);
         assert_eq!(iterated_list[1], &2);
         assert_eq!(iterated_list[2], &1);
+    }
+
+    #[test]
+    fn test_into_iterator() {
+        let mut list: SimpleLinkedList<u32> = SimpleLinkedList::new();
+        list.push(1);
+        list.push(2);
+        list.push(3);
+        let iterated_list: Vec<u32> = list.into_iter().collect();
+        assert_eq!(iterated_list[0], 3);
+        assert_eq!(iterated_list[1], 2);
+        assert_eq!(iterated_list[2], 1);
+    }
+
+    #[test]
+    fn test_mut_iterator() {
+        let mut list: SimpleLinkedList<u32> = SimpleLinkedList::new();
+        list.push(1);
+        list.push(2);
+        list.push(3);
+        let iterated_list: Vec<&mut u32> = list.mut_iter().collect();
+        assert_eq!(iterated_list[0], &mut 3);
+        assert_eq!(iterated_list[1], &mut 2);
+        assert_eq!(iterated_list[2], &mut 1);
+
+        let mut iterated_list = list.mut_iter();
+        let value = iterated_list.next().unwrap();
+        *value = 4u32;
+
+        assert_eq!(list.peek(), Some(&4) );
     }
 }
